@@ -1,4 +1,4 @@
-const BASE_URL = "https://YOUR-RENDER-URL.onrender.com";
+const BASE_URL = "https://smartgrid-project.onrender.com";
 
 const API_LIVE = `${BASE_URL}/api/data`;
 const API_HISTORY = `${BASE_URL}/api/history`;
@@ -15,7 +15,6 @@ const chart = new Chart(document.getElementById("powerChart"), {
     }
 });
 
-
 async function loadHistory() {
     const res = await fetch(API_HISTORY);
     const data = await res.json();
@@ -25,7 +24,6 @@ async function loadHistory() {
 
     chart.update();
 }
-
 
 async function updateLive() {
     const res = await fetch(API_LIVE);
@@ -38,7 +36,6 @@ async function updateLive() {
     document.getElementById("power").innerText = data.power;
     document.getElementById("prediction").innerText = data.prediction;
 }
-
 
 loadHistory();
 setInterval(updateLive, 3000);

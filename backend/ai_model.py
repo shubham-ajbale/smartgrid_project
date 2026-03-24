@@ -31,5 +31,5 @@ def predict_power():
         return float(pred[0])
 
     except Exception as e:
-        print("❌ AI Error:", e)
+        print("AI Error:", e)
         return 0

@@ -32,8 +32,5 @@ client.on_message = on_message
 
 
 def start_mqtt():
-    try:
-        client.connect(MQTT_BROKER, 1883, 60)
-        client.loop_start()
-    except Exception as e:
-        print("MQTT Connection Failed:", e)
+    client.connect(MQTT_BROKER, 1883, 60)
+    client.loop_start()

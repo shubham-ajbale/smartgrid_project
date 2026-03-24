@@ -8,127 +8,86 @@ import os
 import time
 
 app = Flask(__name__)
-
-# ✅ Allow frontend (GitHub Pages)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
-# ---------------- MQTT THREAD (OPTIONAL) ----------------
 def run_mqtt():
-    print("Starting MQTT thread...")
+    print("Starting MQTT...")
     time.sleep(2)
-    try:
-        mqtt_listener.start_mqtt()
-    except Exception as e:
-        print("MQTT failed:", e)
+    mqtt_listener.start_mqtt()
 
 
-# ---------------- HOME ----------------
 @app.route("/")
 def home():
     return "Smart Grid Backend Running"
 
 
-# ---------------- INSERT API ----------------
 @app.route("/api/insert", methods=["POST"])
 def insert_api():
-    try:
-        data = request.json
+    data = request.json
 
-        insert_data(
-            data.get("voltage", 0),
-            data.get("current", 0),
-            data.get("power", 0),
-            data.get("energy", 0)
-        )
+    insert_data(
+        data.get("voltage", 0),
+        data.get("current", 0),
+        data.get("power", 0),
+        data.get("energy", 0)
+    )
 
-        return jsonify({"status": "success"})
-
-    except Exception as e:
-        print("Insert error:", e)
-        return jsonify({"error": str(e)})
+    return jsonify({"status": "success"})
 
 
-# ---------------- LIVE DATA ----------------
 @app.route("/api/data")
 def api_data():
-    try:
-        row = get_latest()
-        prediction = predict_power()
+    row = get_latest()
+    prediction = predict_power()
 
-        if not row:
-            return jsonify({
-                "voltage": 0,
-                "current": 0,
-                "power": 0,
-                "energy": 0,
-                "prediction": 0,
-                "status": "no data"
-            })
-
+    if not row:
         return jsonify({
-            "voltage": row[0],
-            "current": row[1],
-            "power": row[2],
-            "energy": row[3],
-            "prediction": prediction
+            "status": "no data"
         })
 
-    except Exception as e:
-        print("API error:", e)
-        return jsonify({"error": str(e)})
+    return jsonify({
+        "voltage": row[0],
+        "current": row[1],
+        "power": row[2],
+        "energy": row[3],
+        "prediction": prediction
+    })
 
 
-# ---------------- HISTORY ----------------
 @app.route("/api/history")
 def history():
-    try:
-        conn = get_connection()
-        if conn is None:
-            return jsonify([])
+    conn = get_connection()
+    cur = conn.cursor()
 
-        cur = conn.cursor()
+    cur.execute("""
+        SELECT voltage,current,power,energy,timestamp
+        FROM energy ORDER BY id DESC LIMIT 100
+    """)
 
-        cur.execute("""
-            SELECT voltage, current, power, energy, timestamp
-            FROM energy
-            ORDER BY id DESC
-            LIMIT 100
-        """)
+    rows = cur.fetchall()
 
-        rows = cur.fetchall()
+    cur.close()
+    conn.close()
 
-        cur.close()
-        conn.close()
+    rows.reverse()
 
-        rows.reverse()
-
-        data = []
-        for row in rows:
-            data.append({
-                "voltage": row[0],
-                "current": row[1],
-                "power": row[2],
-                "energy": row[3],
-                "time": str(row[4])
-            })
-
-        return jsonify(data)
-
-    except Exception as e:
-        print("History error:", e)
-        return jsonify([])
+    return jsonify([
+        {
+            "voltage": r[0],
+            "current": r[1],
+            "power": r[2],
+            "energy": r[3],
+            "time": str(r[4])
+        }
+        for r in rows
+    ])
 
 
-# ---------------- START SERVER ----------------
 if __name__ == "__main__":
-    print("Server starting locally...")
+    thread = threading.Thread(target=run_mqtt)
+    thread.daemon = True
+    thread.start()
 
-    # ✅ OPTIONAL: Disable this if causing issues
-    mqtt_thread = threading.Thread(target=run_mqtt)
-    mqtt_thread.daemon = True
-    mqtt_thread.start()
-
-    # ✅ IMPORTANT FOR LOCAL + NETWORK ACCESS
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
