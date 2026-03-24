@@ -8,10 +8,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def get_connection(retries=3):
     for i in range(retries):
         try:
-            conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
-            return conn
+            return psycopg2.connect(DATABASE_URL, connect_timeout=5)
         except Exception as e:
-            print(f"❌ DB Error (attempt {i+1}):", e)
+            print(f"DB Error {i+1}:", e)
             time.sleep(2)
     return None
 
@@ -30,10 +29,11 @@ def insert_data(voltage, current, power, energy):
         conn.commit()
         cur.close()
         conn.close()
+
         print("✅ Data inserted")
 
     except Exception as e:
-        print("❌ Insert Error:", e)
+        print("Insert Error:", e)
 
 
 def get_latest():
@@ -52,5 +52,5 @@ def get_latest():
         return row
 
     except Exception as e:
-        print("❌ Fetch Error:", e)
+        print("Fetch Error:", e)
         return None

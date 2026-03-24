@@ -1,6 +1,6 @@
 import paho.mqtt.client as mqtt
 import json
-from database import insert_data
+from backend.database import insert_data
 
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_TOPIC = "smartgrid/node1/data"

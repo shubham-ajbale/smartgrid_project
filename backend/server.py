@@ -1,13 +1,15 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from database import get_latest, get_connection, insert_data
-from ai_model import predict_power
+from backend.database import get_latest, get_connection, insert_data
+from backend.ai_model import predict_power
+from backend import mqtt_listener
 import threading
-import mqtt_listener
 import os
 import time
 
 app = Flask(__name__)
+
+# ✅ CORS FIX
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
@@ -24,16 +26,20 @@ def home():
 
 @app.route("/api/insert", methods=["POST"])
 def insert_api():
-    data = request.json
+    try:
+        data = request.json
 
-    insert_data(
-        data.get("voltage", 0),
-        data.get("current", 0),
-        data.get("power", 0),
-        data.get("energy", 0)
-    )
+        insert_data(
+            data.get("voltage", 0),
+            data.get("current", 0),
+            data.get("power", 0),
+            data.get("energy", 0)
+        )
 
-    return jsonify({"status": "success"})
+        return jsonify({"status": "success"})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 
 @app.route("/api/data")
