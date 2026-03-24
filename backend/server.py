@@ -9,25 +9,35 @@ import time
 
 app = Flask(__name__)
 
-# ✅ CORS FIX
+# ✅ CORS FIX (IMPORTANT for GitHub Pages)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 
+# ---------------- MQTT THREAD (OPTIONAL) ----------------
 def run_mqtt():
-    print("Starting MQTT...")
-    time.sleep(2)
-    mqtt_listener.start_mqtt()
+    try:
+        print("🚀 Starting MQTT...")
+        time.sleep(2)
+        mqtt_listener.start_mqtt()
+    except Exception as e:
+        print("❌ MQTT Error:", e)
 
 
+# ---------------- HOME ----------------
 @app.route("/")
 def home():
-    return "Smart Grid Backend Running"
+    return "🚀 Smart Grid Backend Running"
 
 
+# ---------------- INSERT DATA API ----------------
 @app.route("/api/insert", methods=["POST"])
 def insert_api():
     try:
-        data = request.json
+        data = request.get_json()
+
+        # 🔴 check if no data
+        if not data:
+            return jsonify({"error": "No data received"}), 400
 
         insert_data(
             data.get("voltage", 0),
@@ -36,64 +46,96 @@ def insert_api():
             data.get("energy", 0)
         )
 
-        return jsonify({"status": "success"})
+        return jsonify({"status": "success"}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)})
+        print("❌ Insert API Error:", e)
+        return jsonify({"error": str(e)}), 500
 
 
+# ---------------- LIVE DATA ----------------
 @app.route("/api/data")
 def api_data():
-    row = get_latest()
-    prediction = predict_power()
+    try:
+        row = get_latest()
 
-    if not row:
+        # 🔴 safe AI prediction
+        try:
+            prediction = predict_power()
+        except:
+            prediction = 0
+
+        if not row:
+            return jsonify({
+                "voltage": 0,
+                "current": 0,
+                "power": 0,
+                "energy": 0,
+                "prediction": prediction,
+                "status": "no data"
+            })
+
         return jsonify({
-            "status": "no data"
+            "voltage": row[0],
+            "current": row[1],
+            "power": row[2],
+            "energy": row[3],
+            "prediction": prediction
         })
 
-    return jsonify({
-        "voltage": row[0],
-        "current": row[1],
-        "power": row[2],
-        "energy": row[3],
-        "prediction": prediction
-    })
+    except Exception as e:
+        print("❌ API Error:", e)
+        return jsonify({"error": str(e)}), 500
 
 
+# ---------------- HISTORY ----------------
 @app.route("/api/history")
 def history():
-    conn = get_connection()
-    cur = conn.cursor()
+    try:
+        conn = get_connection()
+        if conn is None:
+            return jsonify([])
 
-    cur.execute("""
-        SELECT voltage,current,power,energy,timestamp
-        FROM energy ORDER BY id DESC LIMIT 100
-    """)
+        cur = conn.cursor()
 
-    rows = cur.fetchall()
+        cur.execute("""
+            SELECT voltage, current, power, energy, timestamp
+            FROM energy
+            ORDER BY id DESC
+            LIMIT 100
+        """)
 
-    cur.close()
-    conn.close()
+        rows = cur.fetchall()
 
-    rows.reverse()
+        cur.close()
+        conn.close()
 
-    return jsonify([
-        {
-            "voltage": r[0],
-            "current": r[1],
-            "power": r[2],
-            "energy": r[3],
-            "time": str(r[4])
-        }
-        for r in rows
-    ])
+        rows.reverse()
+
+        return jsonify([
+            {
+                "voltage": r[0],
+                "current": r[1],
+                "power": r[2],
+                "energy": r[3],
+                "time": str(r[4])
+            }
+            for r in rows
+        ])
+
+    except Exception as e:
+        print("❌ History Error:", e)
+        return jsonify([])
 
 
+# ---------------- START SERVER ----------------
 if __name__ == "__main__":
-    thread = threading.Thread(target=run_mqtt)
-    thread.daemon = True
-    thread.start()
+    print("🔥 Server starting...")
+
+    # ⚠️ OPTIONAL: Disable if causing issues
+    mqtt_thread = threading.Thread(target=run_mqtt)
+    mqtt_thread.daemon = True
+    mqtt_thread.start()
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
